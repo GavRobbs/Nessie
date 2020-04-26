@@ -135,30 +135,17 @@ class CPU(CPUBase):
             self.mapper.readWord(location)
 
     def execute(self):
-        #This reads code at the program counter location
-        #It then looks up the appropriate opcode
-        #It checks the length of the command, then subtracts 1 for the code itself
-        #It then populates the params dictionary by reading length - 1 subsequent bytes
-        #It passes this to the handler function where the relevant processing is done
-        #The handler function returns an index to the duration tuple which
-        #shows how long it actually took to process the function
-
-        #The important thing is that the program counter is modified here
-        #and not in the client functions, to avoid confusion - but I may
-        #have to hack this a bit when it comes to the JMP functions.
-
-        #IMPORTANT - I also need to add in code to check when the 256 byte page
-        #boundary is crossed, for jumps and indexed addressing - may end up delegating to client
-        code = self.readByte(pc)
-        (code_high, code_low) = ((code & 0b11110000) >> 4, code & 0b00001111)
-        params = {}
-        for i in range(0, self.opcodeList[code_high][code_low].length - 1):
-            params.update({i: self.readByte(pc + 1 + i)})
-        result = self.opcodeList[code_high][code_low].function(params)
-
-        #Write some conditional code that stops this if jump is set
-        self.pc += self.opcodeList[code_high][code_low].length
-        return self.opcodeList[code_high][code_low].duration[result]
+        #First draft ignoring timing
+        code = self.readByte(self.pc)
+        counter, duration = 0
+        for i in my_opcodes:
+            if i.code == code:
+                #If the function is a jump or a branch
+                #counter will be 0, since the pc is modified directly
+                counter, duration = process_opcode(i)
+                break
+        self.pc += counter
+        pass
 
 
 #The NES memory map is as follows:
