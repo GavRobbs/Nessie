@@ -35,7 +35,7 @@ class CPUBase:
         pass
 
     def _clampResult(self, value):
-    return value & 0xFF
+        return value & 0xFF
 
     def OR(self, value):
         result = self.a | value
@@ -204,6 +204,102 @@ class CPUBase:
         self.flags.checkZero(result)
         self.flags.checkNegative(result)
 
+    def LSR(self, value):
+        self.flags.setCarry(value & 0x1)
+        self.a = value >> 1
+        self.flags.checkNegative(self.a)
+        self.flags.checkCarry(self.a)
+        self.flags.checkZero(self.a)
+
+    def BPL(self, value):
+        #Branch if N = 0
+        if self.flags.getNegative() == 0:
+            self.pc += value
+            return True
+        else:
+            return False
+
+    def BMI(self, value):
+        if self.flags.getNegative() == 1:
+            self.pc += value
+            return True
+        else:
+            return False
+
+    def BCC(self, value):
+        if self.flags.getCarry() == 0:
+            self.pc += value
+            return True
+        else:
+            return False
+
+    def BCS(self, value):
+        if self.flags.getCarry() == 1:
+            self.pc += value
+            return True
+        else:
+            return False
+
+    def BVC(self, value):
+        if self.flags.getOverflow() == 0:
+            self.pc += value
+            return True
+        else:
+            return False
+
+    def BVS(self, value):
+        if self.flags.getOverflow() == 1:
+            self.pc += value
+            return True
+        else:
+            return False
+
+    def BNE(self, value):
+        if self.flags.getZero() == 0:
+            self.pc += value
+            return True
+        else:
+            return False
+
+    def BEQ(self, value):
+        if self.flags.getZero() == 1:
+            self.pc += value
+            return True
+        else:
+            return False
+
+    def BIT(self, value):
+        self.flags.checkZero(value & self.a)
+        self.flags.setNegative((value & 0b10000000) >> 7)
+        self.flags.setOverflow((value & 0b01000000) >> 6)
+
+    def JMP(self, value):
+        self.pc = value
+
+    def JSR(self, value):
+        nextOpvalue = self.pc + 2 #Next operation, which is pc+3 minus 1 = pc+2
+        self.pushStack(nextOpvalue & 0xFF00) #push the high byte first
+        self.pushStack(nextOpvalue & 0x00FF) #push the low byte next
+        self.pc = value
+
+    def RTS(self):
+        lowByte = self.popStack()
+        highByte = self.popStack()
+        totalWord = ((highByte << 8) | lowByte) + 1
+        self.pc  = totalWord
+
+    def RTI(self):
+        status = self.popStack()
+        self.flags.setStatus(status)
+        lowByte = self.popStack()
+        highByte = self.popStack()
+        totalWord = ((highByte << 8) | lowByte)
+        self.pc = totalWord
+
+    def BRK(self):
+        #Need to figure out my interrupt code
+        pass
+
     def _fetchAppropriateOpcodeData(self, address_mode):
         #This returns a tuple with the data requested
         #and if a page boundary was crossed
@@ -217,6 +313,9 @@ class CPUBase:
             address = readAbsoluteAddress(self, args)
             value = self.readByte(address)
             page_crossed = False
+        elif address_mode == AddressMode.ABSOLUTE_JUMP:
+            args = [self.readByte(self.pc + 1), self.readByte(self.pc + 2)]
+            value = readAbsoluteAddress(self, args)
         elif  address_mode == AddressMode.ABSOLUTE_INDEXED_X:
             args = [self.readByte(self.pc + 1), self.readByte(self.pc + 2)]
             address, page_crossed = readIAbsoluteIndexedAddressX(self, args)
@@ -228,7 +327,8 @@ class CPUBase:
         elif address_mode == AddressMode.IMMEDIATE:
             value, page_crossed = self.readByte(self.pc + 1), False
         elif address_mode == AddressMode.RELATIVE:
-            value, page_crossed = self.readByte(self.pc + 1), False
+            args = [self.readByte(self.pc + 1)]
+            value, page_crossed = readRelativeAddress(self, args)
         elif address_mode == AddressMode.IMPLIED:
             value, page_crossed = 0, False
         elif address_mode == AddressMode.ZEROPAGE:
@@ -255,7 +355,8 @@ class CPUBase:
         #This function returns how much to advance the program counter by
         #And how long this operation took
         value, page_crossed = self._fetchAppropriateOpcodeData(oc.address_mode)
-        counter_advance, duration = oc.length, oc.duration[0]
+        counter_advance =  oc.length
+        duration = oc.duration[0]
         if oc.family == OpcodeFamily.ADC:
             self.ADC(value)
         elif oc.family == OpcodeFamily.AND:
@@ -263,25 +364,89 @@ class CPUBase:
         elif oc.family == OpcodeFamily.ASL:
             self.ASL(value)
         elif oc.family == OpcodeFamily.BCC:
-            pass
+            result = self.BCC(value)
+            if result == True & page_crossed == False:
+                duration = oc.duration[1]
+                counter_advance = 0
+            elif result == True & page_crossed == True:
+                duration = oc.duration[2]
+                counter_advance = 0
+            else:
+                duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BCS:
-            pass
+            result = self.BCS(value)
+            if result == True & page_crossed == False:
+                duration = oc.duration[1]
+                counter_advance = 0
+            elif result == True & page_crossed == True:
+                duration = oc.duration[2]
+                counter_advance = 0               
+            else:
+                duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BEQ:
-            pass
+            result = self.BEQ(value)
+            if result == True & page_crossed == False:
+                duration = oc.duration[1]
+                counter_advance = 0
+            elif result == True & page_crossed == True:
+                duration = oc.duration[2]
+                counter_advance = 0
+            else:
+                duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BIT:
-            pass
+            self.BIT(value)
         elif oc.family == OpcodeFamily.BMI:
-            pass
+            result = self.BMI(value)
+            if result == True & page_crossed == False:
+                duration = oc.duration[1]
+                counter_advance = 0
+            elif result == True & page_crossed == True:
+                duration = oc.duration[2]
+                counter_advance = 0
+            else:
+                duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BNE:
-            pass
+            result = self.BNE(value)
+            if result == True & page_crossed == False:
+                duration = oc.duration[1]
+                counter_advance = 0
+            elif result == True & page_crossed == True:
+                duration = oc.duration[2]
+                counter_advance = 0
+            else:
+                duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BPL:
-            pass
+            result = self.BPL(value)
+            if result == True & page_crossed == False:
+                duration = oc.duration[1]
+                counter_advance = 0
+            elif result == True & page_crossed == True:
+                duration = oc.duration[2]
+                counter_advance = 0
+            else:
+                duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BRK:
-            pass
+            self.BRK()
         elif oc.family == OpcodeFamily.BVC:
-            pass
+            result = self.BVC(value)
+            if result == True & page_crossed == False:
+                duration = oc.duration[1]
+                counter_advance = 0
+            elif result == True & page_crossed == True:
+                duration = oc.duration[2]
+                counter_advance = 0
+            else:
+                duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BVS:
-            pass
+            result = self.BVS(value)
+            if result == True & page_crossed == False:
+                duration = oc.duration[1]
+                counter_advance = 0
+            elif result == True & page_crossed == True:
+                duration = oc.duration[2]
+                counter_advance = 0
+            else:
+                duration = oc.duration[0]
         elif oc.family == OpcodeFamily.CLC:
             self.flags.setCarry(0)
         elif oc.family == OpcodeFamily.CLD:
@@ -312,9 +477,9 @@ class CPUBase:
         elif oc.family == OpcodeFamily.INY:
             self.INY()
         elif oc.family == OpcodeFamily.JMP:
-            pass
+            self.JMP(value)
         elif oc.family == OpcodeFamily.JSR:
-            pass
+            self.JSR(value)
         elif oc.family == OpcodeFamily.LDA:
             self.LDA(value)
         elif oc.family == OpcodeFamily.LDX:
@@ -322,7 +487,7 @@ class CPUBase:
         elif oc.family == OpcodeFamily.LDY:
             self.LDY(value)
         elif oc.family == OpcodeFamily.LSR:
-            pass
+            self.LSR(value)
         elif oc.family == OpcodeFamily.NOP:
             pass
         elif oc.family == OpcodeFamily.ORA:
@@ -343,9 +508,9 @@ class CPUBase:
         elif oc.family == OpcodeFamily.ROR:
             self.ROR(value)
         elif oc.family == OpcodeFamily.RTI:
-            pass
+            self.RTI()
         elif oc.family == OpcodeFamily.RTS:
-            pass
+            self.RTS()
         elif oc.family == OpcodeFamily.SBC:
             self.SBC(value)
         elif oc.family == OpcodeFamily.SEC:
@@ -367,17 +532,17 @@ class CPUBase:
             page_crossed = False #save us a lot of problems
             location = value
             self.STore(location, self.y)
-        elif oc.family == OpcodeFamily.TAX
+        elif oc.family == OpcodeFamily.TAX:
             self.TAX()
-        elif oc.family == OpcodeFamily.TAY
+        elif oc.family == OpcodeFamily.TAY:
             self.TAY()
-        elif oc.family == OpcodeFamily.TSX
+        elif oc.family == OpcodeFamily.TSX:
             self.TSX()
-        elif oc.family == OpcodeFamily.TXA
+        elif oc.family == OpcodeFamily.TXA:
             self.TXA()
-        elif oc.family == OpcodeFamily.TXS
+        elif oc.family == OpcodeFamily.TXS:
             self.TXS()
-        elif oc.family == OpcodeFamily.TYA
+        elif oc.family == OpcodeFamily.TYA:
             self.TYA()
         else:
             raise Exception("Unrecognized opcode, what are you doing?")

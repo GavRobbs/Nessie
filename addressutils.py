@@ -1,7 +1,5 @@
 def readAbsoluteAddress(cpu, args):
     return (args[1] << 8) | args[0]
-
-
 #The following 3 functions all do the same thing
 #but I kept them different for semantics
 
@@ -26,8 +24,9 @@ def readIAbsoluteIndexedAddressX(cpu, args):
     #The high byte of the absolute address is at pc+2
     #What this means is that if pc + 1 at pc + 2 are on 2 different pages
     #Then pc+1 // 256 != pc+2 // 256
-    src = readAbsoluteAddress(cpu, args) + cpu.x
-    if ((cpu.pc+1) // 256) != ((cpu.pc+2) // 256):
+    init_address = readAbsoluteAddress(cpu, args) 
+    final_address = init_address + cpu.x
+    if (final_address & 0xFF00) != (init_address & 0xFF00):
         return (src, True) #Page boundary crossed
     else:
         return (src, False) #Page boundary not crossed
@@ -38,8 +37,9 @@ def readZeroPageXAddress(cpu, args):
 
 def readIAbsoluteIndexedAddressY(cpu, args):
     #If a page boundary is crossed, the instruction takes one extra cycle
-    src = readAbsoluteAddress(cpu, args) + cpu.y
-    if ((cpu.pc+1) // 256) != ((cpu.pc+2) // 256):
+    init_address = readAbsoluteAddress(cpu, args) 
+    final_address = init_address + cpu.y
+    if (final_address & 0xFF00) != (init_address & 0xFF00):
         return (src, True) #Page boundary crossed
     else:
         return (src, False) #Page boundary not crossed
@@ -62,7 +62,7 @@ def readIndirectIndexedAddress(cpu, args):
     first_address = cpu.readWord(args[0])
     final_address = first_address + cpu.y
 
-    if ((first_address) // 256) != ((first_address+1) // 256):
+    if (first_address & 0xFF00) != (final_address & 0xFF00):
         return (final_address, True) #Page boundary crossed
     else:
         return (final_address, False) #Page boundary not crossed

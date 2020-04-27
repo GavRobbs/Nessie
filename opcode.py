@@ -71,6 +71,7 @@ class AddressMode(enum.Enum):
     ZEROPAGE_INDEXED = 9
     INDEXED_INDIRECT = 10
     INDIRECT_INDEXED = 11
+    ABSOLUTE_JUMP = 12
 
 class Opcode:
     def __init__(self, name, code, family, length, address_mode, duration, jump = False):
