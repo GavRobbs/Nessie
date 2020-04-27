@@ -48,8 +48,9 @@ if __name__ == '__main__':
     print("Welcome to the NES 6502 Emulator Core Tester.")
     print("This allows you to evaluate commands as you write the code for them, ensuring that their behaviour is as expected.")
     print("Please pick an option to continue. Press H at any time for help.")
+    fname = ""
     while quit == False:
-        choice = input("> ")
+        choice = input(f"{fname}> ")
         try:
             if choice.lower() == 'h':
                 print("The following commands are supported.")
@@ -72,6 +73,8 @@ if __name__ == '__main__':
             elif choice.lower() == "l":
                 choice2 = input("Please enter the name of the file you want to load: ")
                 val = 0
+                fname = choice2.strip()
+                mycpu.RAM = [0] * 2048 #Empty the list out
                 with open(choice2, "rb") as myrom:
                     abyte = myrom.read(1)
                     while abyte:
