@@ -128,7 +128,34 @@ code_dict = {
     0xCA: Opcode("DEX", 0xCA, OpcodeFamily.DEX, 1, AddressMode.IMPLIED, [2]),
     0xCC: Opcode("CPY a16", 0xCC, OpcodeFamily.CPY, 3, AddressMode.ABSOLUTE, [4]),
     0xCD: Opcode("CMP a16", 0xCD, OpcodeFamily.CMP, 3, AddressMode.ABSOLUTE, [4]),
-    0xCE: Opcode("DEC a16", 0xCE, OpcodeFamily.DEC, 3, AddressMode.ABSOLUTE, [4])
+    0xCE: Opcode("DEC a16", 0xCE, OpcodeFamily.DEC, 3, AddressMode.ABSOLUTE, [4]),
+    0xD0: Opcode("BNE r8", 0xD0, OpcodeFamily.BNE, 2, AddressMode.RELATIVE, [2,3,4]),
+    0xD1: Opcode("CMP (a8), Y", 0xD1, OpcodeFamily.CMP, 2, AddressMode.INDIRECT_INDEXED, [5, 6]),
+    0xD5: Opcode("CMP a8, X", 0xD5, OpcodeFamily.CMP, 2, AddressMode.ZEROPAGE_INDEXED, [4]),
+    0xD6: Opcode("DEC a8,X", 0xD6, OpcodeFamily.DEC, 2, AddressMode.ZEROPAGE_INDEXED, [6]),
+    0xD8: Opcode("CLD", 0xD8, OpcodeFamily.CLD, 1, AddressMode.IMPLIED, [2]),
+    0xD9: Opcode("CMP a16, Y", 0xD9, OpcodeFamily.CMP, 3, AddressMode.ABSOLUTE_INDEXED_Y, [5,6]),
+    0xDD: Opcode("CMP a16, X", 0xDD, OpcodeFamily.CMP, 3, AddressMode.ABSOLUTE_INDEXED_X, [5,6]),
+    0xDE: Opcode("DEC a16, X", 0xDE, OpcodeFamily.DEC, 3, AddressMode.ABSOLUTE_INDEXED_X, [7, 7]),
+    0xE0: Opcode("CPX #d8", 0xE0, OpcodeFamily.CPX, 2, AddressMode.IMMEDIATE, [2]),
+    0xE1: Opcode("SBC (a8, X)", 0xE1, OpcodeFamily.SBC, 2, AddressMode.INDEXED_INDIRECT, [6]),
+    0xE4: Opcode("CPX a8", 0xE4, OpcodeFamily.CPX, 2, AddressMode.ZEROPAGE, [3]),
+    0xE5: Opcode("SBC a8", 0xE5, OpcodeFamily.SBC, 2, AddressMode.ZEROPAGE, [3]),
+    0xE6: Opcode("INC a8", 0xE6, OpcodeFamily.INC, 2, AddressMode.ZEROPAGE, [5]),
+    0xE8: Opcode("INX", 0xE8, OpcodeFamily.INX, 1, AddressMode.IMPLIED, [2]),
+    0xE9: Opcode("SBC #d8", 0xE9, OpcodeFamily.SBC, 2, AddressMode.IMMEDIATE, [2]),
+    0xEA: Opcode("NOP", 0xEA, OpcodeFamily.NOP, 1, AddressMode.IMPLIED, [2]),
+    0xEC: Opcode("CPX a16", 0xEC, OpcodeFamily.CPX, 3, AddressMode.ABSOLUTE, [4]),
+    0xED: Opcode("SBC a16", 0xED, OpcodeFamily.SBC, 3, AddressMode.ABSOLUTE, [4]),
+    0xEE: Opcode("INC a16", 0xEE, OpcodeFamily.INC, 3, AddressMode.ABSOLUTE, [6]),
+    0xF0: Opcode("BEQ r8", 0xF0, OpcodeFamily.BEQ, 2, AddressMode.RELATIVE, [2, 3, 4]),
+    0xF1: Opcode("SBC (a8), Y", 0xF1, OpcodeFamily.SBC, 2, AddressMode.INDIRECT_INDEXED, [5, 6]),
+    0xF5: Opcode("SBC a8, X", 0xF5, OpcodeFamily.SBC, 2, AddressMode.ZEROPAGE_INDEXED, [4]),
+    0xF6: Opcode("INC a8, X", 0xF6, OpcodeFamily.INC, 2, AddressMode.ZEROPAGE_INDEXED, [6]),
+    0xF8: Opcode("SED", 0xF8, OpcodeFamily.SED, 1, AddressMode.IMPLIED, [2]),
+    0xF9: Opcode("SBC a16, Y", 0xF9, OpcodeFamily.SBC, 3, AddressMode.ABSOLUTE_INDEXED_Y, [4, 5]),
+    0xFD: Opcode("SBC a16, X", 0xFA, OpcodeFamily.SBC, 3, AddressMode.ABSOLUTE_INDEXED_X, [4, 5]),
+    0xFE: Opcode("INC a16, X", 0xFE, OpcodeFamily.INC, 3, AddressMode.ABSOLUTE_INDEXED_X, [7, 7])
 }
 
 if __name__ == '__main__':
@@ -184,10 +211,6 @@ if __name__ == '__main__':
                 advance, duration = mycpu._executeOpcode(currentOp)
                 mycpu.pc += advance
                 print(currentOp.name)
-                if currentOp.jump == False:
-                    print(f"The command was {advance} bytes long and took {duration} cycles.")
-                else:
-                    print(f"The command was a jump that took the program counter to {mycpu.pc} and took {duration} cycles.")
             elif choice.lower() == "p":
                 while mycpu.pc < fsize:
                     currentOp = code_dict[mycpu.RAM[mycpu.pc]]

@@ -1,16 +1,21 @@
 from opcode import AddressMode, OpcodeFamily
+import flags
 from addressutils import *
 
 class CPUBase:
     def __init__(self):
         self.RAM = [0] * 2048
         self.flags = None
-        self.mapper = None
+        self.LIDC = 0 #Last instruction duration in cycles
         self.pc = 0
         self.sp = 0x1FF
         self.a = 0
         self.x = 0
         self.y = 0
+        self.pendingRST = False
+        self.pendingNMI = False
+        self.pendingIRQ = False
+        self.pendingBRK = False
 
     def pushStack(self, value):
         self.RAM[self.sp] = value
@@ -298,8 +303,38 @@ class CPUBase:
         self.pc = totalWord
 
     def BRK(self):
-        #Need to figure out my interrupt code
-        pass
+        self.pendingBRK = False
+        self.pc += 2 #So that the return address from RTI is the next instruction
+        self.pushStack(self.pc & 0xFF00)
+        self.pushStack(self.pc & 0x00FF)
+        status = self.flags.getStatus(flags.BreakHandler.PHPBRK)
+        self.pc = self.readWord(0xFFFE)
+
+    def RESET(self):
+        #The whole system has been reset, so all interrupts can be cancelled
+        self.pendingRST = False
+        self.pendingIRQ = False
+        self.pendingBRK = False
+        self.pendingNMI = False
+        self.sp = 0
+        self.flags.setInterruptDisable(1)
+        self.pc = self.readWord(0xFFFC)
+
+    def NMI(self):
+        self.pendingNMI = False
+        self.pushStack(self.pc & 0xFF00)
+        self.pushStack(self.pc & 0x00FF)
+        status = self.flags.getStatus(flags.BreakHandler.IRQNMI)
+        self.pc = self.readWord(0xFFFA)
+        self.flags.setInterruptDisable(1)
+
+    def IRQ(self):
+        self.pendingIRQ = False
+        self.pushStack(self.pc & 0xFF00)
+        self.pushStack(self.pc & 0x00FF)
+        status = self.flags.getStatus(flags.BreakHandler.IRQNMI)
+        self.pc = self.readWord(0xFFFE)
+        self.flags.setInterruptDisable(1)
 
     def _fetchAppropriateOpcodeData(self, address_mode, isStorage=False):
         #This returns a tuple with the data requested
@@ -515,7 +550,7 @@ class CPUBase:
         elif oc.family == OpcodeFamily.PHA:
             self.pushStack(self.a)
         elif oc.family == OpcodeFamily.PHP:
-            self.pushStack(self.flags.getStatus())
+            self.pushStack(self.flags.getStatus(flags.BreakHandler.PHPBRK))
         elif oc.family == OpcodeFamily.PLA:
             self.a = self.popStack()
             self.flags.checkNegative(self.a)

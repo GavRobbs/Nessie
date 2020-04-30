@@ -6,18 +6,13 @@ from cpubase import *
 class NESCPU(CPUBase):
     #This is the CPU base plus the memory mapped peripherals
     def __init__(self):
-        self.RAM = [0] * 2048
         self.cycleSpeed = 1770000 #NTSC and 1790000 for PAL, to be configurable
         self.microsPerCycle = (1/cycleSpeed) * 1000000
         self.cycleDeltaSum = 0
         self.ROMData = None
         self.PPU = None
-        self.LIDC = 0 #Last instruction duration in cycles
         self.APUAndInputManager = None
-        self.flags = None
-        self.mapper = None
-        self.pc = 0
-        self.sp = 0
+        self.mapper = None       
 
     def loadROM(self, filename):
         #This loads the ROM via its filename,
@@ -36,15 +31,9 @@ class NESCPU(CPUBase):
         else:
             romfile.seek(512)
 
-        for i in range(0, self.ROMData.PRGRomSize, 16384):
-            romfile.seek(i, 1) #Relative seek
-            mapper.data[i % 16384] = list(romfile.read(16384))
-            #Remember that lists are mutable and strings are not
-
-        for i in range(0, self.ROMData.CHRRomSize, 8192):
-            #I should consider putting this data in the PPU instead
-            romfile.seek(i, 1)
-            mapper.data[i % 16384] = list(romfile.read(16384))
+        #Populates our PRG rom data
+        mapper.populate(self.ROMData, romfile)
+        ppu.populate(self.ROMData, romfile)
 
         romfile.close()
         pass
@@ -142,13 +131,13 @@ class NESCPU(CPUBase):
         #This command fetches and runs the current opcode based off where the program
         #counter is, increments the program counter accordingly, then returns the
         #duration of the command that was just executed in cycles
-        currentOp = opcodes.code_dict[mycpu.RAM[mycpu.pc]]
+        currentOp = opcodes.code_dict[self.RAM[self.pc]]
         advance, duration = self._executeOpcode(currentOp)
         self.pc += advance
         return duration        
 
     def run(self):
-        #This is the simplest event loop possible ignoring input and interrupts
+        #This is the simplest event loop possible ignoring input
         #It gets the starting time initially, then gets a time for every iteration
         #of the loop. The difference between those is the delta. The duration of the
         #last instruction executed (in cycles) is stored. If the delta time between two
@@ -160,6 +149,30 @@ class NESCPU(CPUBase):
             delta_us = newtime - start()
             if delta_us >= (self.LIDC * self.microsPerCycle):
                 start = newtime
+                #Need to check for any pending interrupts here
+                #The RESET interrupt has first priority, because its a system reset
+                #The NMI would come from the PPU and has next priority
+                #BRK has third priority
+                #IRQ has last priority
+                #NMI is non-maskable, so will be called whether or not interrupts
+                #are disabled, and can actually intrude in other interrupts
+                if self.pendingRST:
+                    self.RESET()
+                    self.LIDC = 7
+
+                if self.pendingNMI:
+                    self.NMI()
+                    self.LIDC = 7
+
+                if self.flags.getInterruptDisable() == False:
+                    if self.pendingBRK:
+                        self.BRK()
+                        self.LIDC = 7
+
+                    if self.pendingIRQ:
+                        self.IRQ()
+                        self.LIDC = 7
+
                 LIDC = self.execute()
             else:
                 pass
