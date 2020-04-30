@@ -1,19 +1,23 @@
 import romutils
-import opcodes0
-import opcodes1
+import opcodes
+import datetime
 from cpubase import *
 
-class CPU(CPUBase):
+class NESCPU(CPUBase):
+    #This is the CPU base plus the memory mapped peripherals
     def __init__(self):
         self.RAM = [0] * 2048
+        self.cycleSpeed = 1770000 #NTSC and 1790000 for PAL, to be configurable
+        self.microsPerCycle = (1/cycleSpeed) * 1000000
+        self.cycleDeltaSum = 0
         self.ROMData = None
         self.PPU = None
+        self.LIDC = 0 #Last instruction duration in cycles
         self.APUAndInputManager = None
         self.flags = None
         self.mapper = None
         self.pc = 0
         self.sp = 0
-        self.opcodeList = {0 : opcodes0.code_dict, 1 : opcodes1.code_dict}
 
     def loadROM(self, filename):
         #This loads the ROM via its filename,
@@ -135,18 +139,30 @@ class CPU(CPUBase):
             self.mapper.readWord(location)
 
     def execute(self):
-        #First draft ignoring timing
-        code = self.readByte(self.pc)
-        counter, duration = 0
-        for i in my_opcodes:
-            if i.code == code:
-                #If the function is a jump or a branch
-                #counter will be 0, since the pc is modified directly
-                counter, duration = process_opcode(i)
-                break
-        self.pc += counter
-        pass
+        #This command fetches and runs the current opcode based off where the program
+        #counter is, increments the program counter accordingly, then returns the
+        #duration of the command that was just executed in cycles
+        currentOp = opcodes.code_dict[mycpu.RAM[mycpu.pc]]
+        advance, duration = self._executeOpcode(currentOp)
+        self.pc += advance
+        return duration        
 
+    def run(self):
+        #This is the simplest event loop possible ignoring input and interrupts
+        #It gets the starting time initially, then gets a time for every iteration
+        #of the loop. The difference between those is the delta. The duration of the
+        #last instruction executed (in cycles) is stored. If the delta time between two
+        #iterations of the loop is more than or equal to the length of the last instruction
+        #the last instruction should have taken, then you can move on, otherwise wait
+        start = datetime.now()
+        while True:
+            newtime = datetime.now()
+            delta_us = newtime - start()
+            if delta_us >= (self.LIDC * self.microsPerCycle):
+                start = newtime
+                LIDC = self.execute()
+            else:
+                pass
 
 #The NES memory map is as follows:
 #0x0000 - 0x7FF - 2kb internal ram

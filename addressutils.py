@@ -27,9 +27,9 @@ def readIAbsoluteIndexedAddressX(cpu, args):
     init_address = readAbsoluteAddress(cpu, args) 
     final_address = init_address + cpu.x
     if (final_address & 0xFF00) != (init_address & 0xFF00):
-        return (src, True) #Page boundary crossed
+        return (final_address, True) #Page boundary crossed
     else:
-        return (src, False) #Page boundary not crossed
+        return (final_address, False) #Page boundary not crossed
 
 def readZeroPageXAddress(cpu, args):
     src = (cpu.readByte(args[0]) + cpu.x) & 0xFF
@@ -40,9 +40,9 @@ def readIAbsoluteIndexedAddressY(cpu, args):
     init_address = readAbsoluteAddress(cpu, args) 
     final_address = init_address + cpu.y
     if (final_address & 0xFF00) != (init_address & 0xFF00):
-        return (src, True) #Page boundary crossed
+        return (final_address, True) #Page boundary crossed
     else:
-        return (src, False) #Page boundary not crossed
+        return (final_address, False) #Page boundary not crossed
 
 def readIZeroPageIndexedAddressX(cpu, args):
     src = readZeroPageAddress(cpu, args)

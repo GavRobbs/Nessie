@@ -72,9 +72,11 @@ class AddressMode(enum.Enum):
     INDEXED_INDIRECT = 10
     INDIRECT_INDEXED = 11
     ABSOLUTE_JUMP = 12
+    IMPLIED_JUMP = 13 #For RTI and RTS
+    ZEROPAGE_INDEXED_Y = 14
 
 class Opcode:
-    def __init__(self, name, code, family, length, address_mode, duration, jump = False):
+    def __init__(self, name, code, family, length, address_mode, duration, isStorage = False, jump = False):
         self.name = name
         self.code = code
         self.family = family
@@ -83,5 +85,6 @@ class Opcode:
         self.duration = duration
         self.function = None
         self.jump = jump
+        self.isStorage = isStorage
         #Jump says that the CPU doesn't need to increment the program counter
         #after the function returns, because the function will directly modify it

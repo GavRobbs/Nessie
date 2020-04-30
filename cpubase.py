@@ -31,7 +31,7 @@ class CPUBase:
     def readWord(self, location):
         pass
 
-    def execute(self):
+    def execute(self, delta):
         pass
 
     def _clampResult(self, value):
@@ -129,7 +129,7 @@ class CPUBase:
         self.flags.checkNegative(self.y)
 
     def DEY(self):
-        self.y = (self.y + 1) & 0xFF
+        self.y = (self.y - 1) & 0xFF
         self.flags.checkZero(self.y)
         self.flags.checkNegative(self.y)
 
@@ -213,6 +213,7 @@ class CPUBase:
 
     def BPL(self, value):
         #Branch if N = 0
+        #The program counter is incremented by 2 during instruction execution
         if self.flags.getNegative() == 0:
             self.pc += value
             return True
@@ -300,11 +301,16 @@ class CPUBase:
         #Need to figure out my interrupt code
         pass
 
-    def _fetchAppropriateOpcodeData(self, address_mode):
+    def _fetchAppropriateOpcodeData(self, address_mode, isStorage=False):
         #This returns a tuple with the data requested
         #and if a page boundary was crossed
         value = 0
         page_crossed = False
+        address = 0
+
+        #isStorage is for the LDx and STx function which actually want an
+        #address, and not the value at the address
+
         if address_mode == AddressMode.ACCUMULATOR:
             value = self.a
             page_crossed = False
@@ -326,9 +332,24 @@ class CPUBase:
             value = self.readByte(address)
         elif address_mode == AddressMode.IMMEDIATE:
             value, page_crossed = self.readByte(self.pc + 1), False
+            address = value #A bit of a hack 
         elif address_mode == AddressMode.RELATIVE:
             args = [self.readByte(self.pc + 1)]
-            value, page_crossed = readRelativeAddress(self, args)
+            address, page_crossed = readRelativeAddress(self, args), False
+            #The relative jump address is read
+            if address & 0b10000000 > 0:
+                #This is a negative number
+                value_oc = (address & 0xFF) - 1
+                inverse_oc = ~value_oc & 0xFF
+                value = -inverse_oc
+            else:
+                #It is a positive number
+                value = address
+
+            if (self.pc & 0xFF00) != ((self.pc + value) & 0xFF00):
+                page_crossed = True
+            else:
+                page_crossed = False
         elif address_mode == AddressMode.IMPLIED:
             value, page_crossed = 0, False
         elif address_mode == AddressMode.ZEROPAGE:
@@ -336,25 +357,39 @@ class CPUBase:
             value = self.readByte(address)
         elif address_mode == AddressMode.ZEROPAGE_INDEXED:
             args = [self.readByte(self.pc + 1)]
-            address, page_crossed = readZeroPageXAddress(self, args)
+            address, page_crossed = readIZeroPageIndexedAddressX(self, args), False
+            value = self.readByte(address)
+        elif address_mode == AddressMode.ZEROPAGE_INDEXED_Y:
+            args = [self.readByte(self.pc + 1)]
+            address, page_crossed = readIZeroPageIndexedAddressY(self, args), False
+            value = self.readByte(address)
         elif address_mode == AddressMode.INDIRECT:
             #Only the JMP instruction uses this
             value, page_crossed = self.readWord(self.readWord(self.pc + 1)), False
         elif address_mode == AddressMode.INDEXED_INDIRECT:
             args = [self.readByte(self.pc + 1)]
-            value, page_crossed = self.readByte(readIndexedIndirectAddress(self, args))
+            address = readIndexedIndirectAddress(self, args)
+            value, page_crossed = self.readByte(address)
         elif address_mode == AddressMode.INDIRECT_INDEXED:
             args = [self.readByte(self.pc + 1)]
-            value, page_crossed = self.readByte(readIndirectIndexedAddress(self, args))
+            address = readIndirectIndexedAddress(self, args)
+            value, page_crossed = self.readByte(address)
+        elif address_mode == AddressMode.IMPLIED_JUMP:
+            value, page_crossed = 0, False
+            #For RTI and RTS
         else:
             raise Exception("The specified address mode is not known or defined")
+
+        if isStorage:
+            #Storage instructions want the address itself, not the value at the address
+            value = address
 
         return value, page_crossed
 
     def _executeOpcode(self, oc):
         #This function returns how much to advance the program counter by
         #And how long this operation took
-        value, page_crossed = self._fetchAppropriateOpcodeData(oc.address_mode)
+        value, page_crossed = self._fetchAppropriateOpcodeData(oc.address_mode, oc.isStorage)
         counter_advance =  oc.length
         duration = oc.duration[0]
         if oc.family == OpcodeFamily.ADC:
@@ -367,30 +402,24 @@ class CPUBase:
             result = self.BCC(value)
             if result == True & page_crossed == False:
                 duration = oc.duration[1]
-                counter_advance = 0
             elif result == True & page_crossed == True:
                 duration = oc.duration[2]
-                counter_advance = 0
             else:
                 duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BCS:
             result = self.BCS(value)
             if result == True & page_crossed == False:
                 duration = oc.duration[1]
-                counter_advance = 0
             elif result == True & page_crossed == True:
                 duration = oc.duration[2]
-                counter_advance = 0               
             else:
                 duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BEQ:
             result = self.BEQ(value)
             if result == True & page_crossed == False:
                 duration = oc.duration[1]
-                counter_advance = 0
             elif result == True & page_crossed == True:
                 duration = oc.duration[2]
-                counter_advance = 0
             else:
                 duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BIT:
@@ -399,30 +428,24 @@ class CPUBase:
             result = self.BMI(value)
             if result == True & page_crossed == False:
                 duration = oc.duration[1]
-                counter_advance = 0
             elif result == True & page_crossed == True:
                 duration = oc.duration[2]
-                counter_advance = 0
             else:
                 duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BNE:
             result = self.BNE(value)
             if result == True & page_crossed == False:
                 duration = oc.duration[1]
-                counter_advance = 0
             elif result == True & page_crossed == True:
                 duration = oc.duration[2]
-                counter_advance = 0
             else:
                 duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BPL:
             result = self.BPL(value)
             if result == True & page_crossed == False:
                 duration = oc.duration[1]
-                counter_advance = 0
             elif result == True & page_crossed == True:
                 duration = oc.duration[2]
-                counter_advance = 0
             else:
                 duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BRK:
@@ -431,20 +454,16 @@ class CPUBase:
             result = self.BVC(value)
             if result == True & page_crossed == False:
                 duration = oc.duration[1]
-                counter_advance = 0
             elif result == True & page_crossed == True:
                 duration = oc.duration[2]
-                counter_advance = 0
             else:
                 duration = oc.duration[0]
         elif oc.family == OpcodeFamily.BVS:
             result = self.BVS(value)
             if result == True & page_crossed == False:
                 duration = oc.duration[1]
-                counter_advance = 0
             elif result == True & page_crossed == True:
                 duration = oc.duration[2]
-                counter_advance = 0
             else:
                 duration = oc.duration[0]
         elif oc.family == OpcodeFamily.CLC:
@@ -478,6 +497,7 @@ class CPUBase:
             self.INY()
         elif oc.family == OpcodeFamily.JMP:
             self.JMP(value)
+            counter_advance = 0
         elif oc.family == OpcodeFamily.JSR:
             self.JSR(value)
         elif oc.family == OpcodeFamily.LDA:

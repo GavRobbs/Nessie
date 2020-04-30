@@ -33,8 +33,12 @@ class Flags:
     def getStatus(self):
         return (self.negative << 7) | (self.overflow << 6) | (self.interruptDisable << 2) | (self.zero << 1) | (self.carry)
 
-    def setStatus(self):
-        pass
+    def setStatus(self, value):
+        self.setNegative(1 if value & 0b10000000 else 0)
+        self.setOverflow(1 if value & 0b01000000 else 0)
+        self.setInterruptDisable(1 if value & 0b00000100 else 0)
+        self.setZero(1 if value & 0b00000010 else 0)
+        self.setCarry(1 if value & 0b00000001 else 0)
 
     def setInterruptDisable(self, status):
         self.interruptDisable = status
