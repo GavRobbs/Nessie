@@ -215,7 +215,7 @@ class NESCPU(CPUBase):
                 break
 
             try:
-                currentOp = opcodes.code_dict[GameSession.mapper.romdata[i]]
+                currentOp = opcodes.code_dict[GameSession.mapper.readByte(i)]
                 arglist = []
                 tempstr = ""
                 
@@ -231,7 +231,7 @@ class NESCPU(CPUBase):
                     j = 1
                     templist = []
                     while j != currentOp.length:
-                        templist.append(GameSession.mapper.romdata[i + j])
+                        templist.append(GameSession.mapper.readByte(i + j))
                         j += 1
 
                     arglist = [hex(u) for u in templist]
@@ -242,7 +242,7 @@ class NESCPU(CPUBase):
                 
                 i += currentOp.length
             except KeyError:
-                disasm.write(f"{hex(i)} : .DB {hex(GameSession.mapper.romdata[i])} \n")
+                disasm.write(f"{hex(i)} : .DB {hex(GameSession.mapper.readByte(i))} \n")
                 i += 1
 
         disasm.close()
