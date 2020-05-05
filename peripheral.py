@@ -1,9 +1,4 @@
-class Mapper:
-    def __init__(self):
-        self.firstPRGROMBank = []
-        self.lastPRGROMBank = []
-        self.PRGRAMBank = []
-        self.data = []
+class Peripheral:
     def readByte(self, location):
         pass
     def writeByte(self, location, value):
@@ -11,4 +6,8 @@ class Mapper:
     def readWord(self, location):
         pass
     def writeWord(self, location, value):
+        pass
+    def populate(self, header, filedata):
+        pass
+    def dump(self):
         pass

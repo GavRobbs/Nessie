@@ -3,3 +3,5 @@ zelda.nes
 tetris.nes
 testfile.bin
 __pycache__/
+tests/
+disassembly.asm

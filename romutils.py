@@ -47,14 +47,14 @@ def printHeader(header):
         print("PRG NVRAM Size:", header.PRGNVRamSize, "kb")
         print("PRG VRAM Size:", header.PRGVRamSize, "kb")
     else:
-        print("PRG RAM Size:", header.PRGRamSize, "kb")
+        print("PRG RAM Size:", header.PRGRamSize, "bytes")
 
     print("CHR ROM Size:", header.CHRRomSize, "bytes")
     if header.NESVersion == "NES2.0":
         print("CHR NVRAM Size:", header.CHRNVRamSize, "kb")
         print("CHR VRAM Size:", header.CHRVRamSize, "kb")
     else:
-        print("CHR RAM Size:", header.CHRRamSize, "kb")
+        print("CHR RAM Size:", header.CHRRamSize, "bytes")
 
     print("Mirroring Mode:", header.mirrorMode)
 
@@ -187,7 +187,7 @@ def _processHeader(romfile):
             head.consoleType = "UNISYSTEM" if header_str[7] & 0x1 == 1 else "NES"
             head.mapperNumber = (header_str[7] & 0b11110000) + ((header_str[6] & 0b11110000) >> 4)
 
-        head.PRGRamSize = header_str[8] * 8 if header_str[8] != 0 else 8
+        head.PRGRamSize = header_str[8] * 8192 if header_str[8] != 0 else 8192
 
         if header_str[9] == 0:
             head.tvSystem = "UNSPECIFIED or NTSC"
